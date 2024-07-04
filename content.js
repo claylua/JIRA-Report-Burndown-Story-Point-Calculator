@@ -1,54 +1,54 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-		if (request.action === 'calculateStoryPoints') {
-		// Ensure jQuery is available
-		if (typeof $ !== 'undefined') {
-		// Find the th element containing a div with the exact text "QA Story Point Estimate"
+  if (request.action === 'calculateStoryPoints') {
+    function getTotalStories(parent, title) {
+      let totalText = '';
+      const nameSums = {};
 
+      // Iterate over each row in the table
+      const rows = parent.querySelectorAll('table tr');
+      rows.forEach(row => {
+        // Find the second-to-last column and get the <span> element with the name
+        const nameElement = row.querySelector('td:nth-last-child(2) span[id$="val-avatar-label"]');
+        const name = nameElement ? nameElement.textContent.trim() : '';
 
+        // Find the last column and get its value
+        const valueElement = row.querySelector('td:last-child');
+        const value = valueElement ? parseFloat(valueElement.textContent.trim()) : NaN;
 
+        // If the name is not empty and value is a number
+        if (name && !isNaN(value)) {
+          if (nameSums[name]) {
+            nameSums[name] += value;
+          } else {
+            nameSums[name] = value;
+          }
+        }
+      });
 
-		getTotalStories = function($parent, title) {
-		let totalText = '';
-		var nameSums = {};
+      totalText += title + '<br/>';
+      // Display the results
+      Object.keys(nameSums).forEach(name => {
+        totalText += (name + ": " + nameSums[name]) + '<br/>';
+      });
+      totalText += '<br/>';
+      return totalText;
+    }
 
-		// Iterate over each row in the table
-		$parent.find('table tr').each(function() {
-				// Find the second-to-last column and get the <span> element with the name
-				var name = $(this).find('td:nth-last-child(2) span[id$="val-avatar-label"]').text().trim();
+    // find completed
+    let totalText = '';
+    const completeIssuesContainer = document.querySelector('[data-test-id="software-burndown-report.ui.data-tables.complete-issues-table-container"]');
+    const incompleteIssuesContainer = document.querySelector('[data-test-id="software-burndown-report.ui.data-tables.incomplete-issues-table-container"]');
 
-				// Find the last column and get its value
-				var value = parseFloat($(this).find('td:last-child').text().trim());
+    if (completeIssuesContainer && incompleteIssuesContainer) {
+      totalText += getTotalStories(completeIssuesContainer, 'Completed points');
+      totalText += getTotalStories(incompleteIssuesContainer, 'Uncompleted Points:');
+    } else {
+      console.error('Required elements not found.');
+      sendResponse({ totalPoints: 'Error: Required elements not found' });
+      return;
+    }
 
-				// If the name is not empty and value is a number
-				if (name && !isNaN(value)) {
-				if (nameSums[name]) {
-				nameSums[name] += value;
-				} else {
-				nameSums[name] = value;
-				}
-				}
-				});
-
-		totalText += title + '<br/>'
-			// Display the results
-			$.each(nameSums, function(name, totalSum) {
-					totalText += (name + ": " + totalSum) + '<br/>';
-					});
-		totalText += '<br/>'
-		return totalText;
-		}
-
-		// find completed
-		let totalText = '';
-		totalText += getTotalStories($('[data-test-id="software-burndown-report.ui.data-tables.complete-issues-table-container"]'), 'Completed points');
-		totalText += getTotalStories($('[data-test-id="software-burndown-report.ui.data-tables.incomplete-issues-table-container"]'), 'Uncompleted Points:');
-
-
-
-		sendResponse({ totalText });
-		} else {
-			console.error('jQuery is not loaded.');
-			sendResponse({ totalPoints: 'Error: jQuery not loaded' });
-		}
-		}
+    sendResponse({ totalText });
+  }
 });
+
