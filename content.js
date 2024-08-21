@@ -93,27 +93,103 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 
       // Add title and total points to the result text
       totalText += '<span style="color: darkorange;">' + title + ':</span> ' + totalPoints + '<br/>';
+var comparisonTable = '';
+
+// Collect all unique statuses and issues
+var uniqueStatuses = new Set();
+var uniqueIssues = new Set();
+$.each(nameSums, function(name, sum) {
+    $.each(sum.status, function(status) {
+        uniqueStatuses.add(status);
+    });
+    $.each(sum.issue, function(issueType) {
+        uniqueIssues.add(issueType);
+    });
+});
+
+// Convert Sets to arrays for easier iteration
+uniqueStatuses = Array.from(uniqueStatuses);
+uniqueIssues = Array.from(uniqueIssues);
+
+// Start the comparison table with headers
+comparisonTable += '<table border="1" cellspacing="0" cellpadding="5" style="border-collapse: collapse; width: 100%;">';
+comparisonTable += '<thead><tr>';
+comparisonTable += '<th>Name</th>';
+comparisonTable += '<th>Total Points</th>';
+          $.each(uniqueStatuses, function(index, status) {
+                comparisonTable += '<th data-type="status">Status: ' + status + '</th>';
+            });
+
+            $.each(uniqueIssues, function(index, issue) {
+                comparisonTable += '<th data-type="issue">Issue: ' + issue + '</th>';
+            });
+comparisonTable += '</tr></thead>';
+comparisonTable += '<tbody>';
+
+// Iterate over each name to generate rows
+$.each(nameSums, function(name, sum) {
+    var row = '<tr>';
+    row += '<td>' + name + '</td>';
+    row += '<td>' + sum.total + '</td>';
+
+    // Add points for each status
+    $.each(uniqueStatuses, function(index, status) {
+        var points = sum.status[status] || 0;
+        row += '<td>' + points + '</td>';
+    });
+
+    // Add counts for each issue
+    $.each(uniqueIssues, function(index, issue) {
+        var count = sum.issue[issue] || 0;
+        row += '<td>' + count + '</td>';
+    });
+
+    row += '</tr>';
+    comparisonTable += row;
+});
+
+comparisonTable += '</tbody></table><br/>';
+
+// Append the comparison table to totalText or wherever you need it to be displayed
+totalText += comparisonTable;
+
 
       // Display the results per name
-      $.each(nameSums, function(name, sum) {
-        totalText += '<span style="color: blue;">' + name + ':</span> ' + sum.total + '<br/>'; // Display total points for the name
-	totalText += '<span style="color: purple;">Status:</span> <br/>';
-        $.each(sum.status, function(status, value) {
-          if (status !== 'total') { // Exclude the total key from the status list
-            totalText += '&emsp;' + status + ": " + value + '<br/>'; // Indent status breakdown
-          }
-        });
-        totalText += '<br/>';
-	totalText += '<span style="color: purple;">Issues:</span>';
-        totalText += '<br/>';
-        $.each(sum.issue, function(issueType, value) {
-          if (issueType !== 'total') { // Exclude the total key from the status list
-            totalText += '&emsp;' + issueType + ": " + value + '<br/>'; // Indent issue breakdown
-          }
-        });
-      });
+$.each(nameSums, function(name, sum) {
+    // Display Name and Total Points outside the table
+    totalText += '<div style="font-weight: bold; color: blue;">Name: ' + name + '</div>';
+    totalText += '<div style="font-weight: bold; color: darkred;">Total Points: ' + sum.total + '</div>';
 
-      totalText += '<br/>';
+    // Create the table for Status and Issue
+    totalText += '<table border="1" cellspacing="0" cellpadding="5" style="border-collapse: collapse; width: 100%;">';
+    totalText += '<thead><tr><th>Status</th><th>Points</th></tr></thead>';
+    totalText += '<tbody>';
+
+    // Generate rows for each status
+    $.each(sum.status, function(status, value) {
+        totalText += '<tr>';
+        totalText += '<td>' + status + '</td>';
+        totalText += '<td>' + value + '</td>';
+        totalText += '</tr>';
+    });
+
+    // Add an empty row between status and issue sets
+    totalText += '<tr><td colspan="2" style="height: 10px;"></td></tr>';
+
+    // Add header for Issue and Count
+    totalText += '<tr><th>Issue</th><th>Count</th></tr>';
+
+    // Generate rows for each issue
+    $.each(sum.issue, function(issueType, value) {
+        totalText += '<tr>';
+        totalText += '<td>' + issueType + '</td>';
+        totalText += '<td>' + value + '</td>';
+        totalText += '</tr>';
+    });
+
+    totalText += '</tbody></table><br/>';
+});
+
 
       return totalText;
     }

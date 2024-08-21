@@ -11,7 +11,17 @@
       font-size: 12px;
       margin-top: 20px;
       text-align: left;
+	overflow: auto;
     }
+        /* Highlight status headers */
+        thead th[data-type="status"] {
+            background-color: #d1e7dd; /* Light green for status */
+        }
+
+        /* Highlight issue headers */
+        thead th[data-type="issue"] {
+            background-color: #cfe2f3; /* Light blue for issues */
+        }
   </style>
 </head>
 <body>
