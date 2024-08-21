@@ -15,64 +15,52 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       "Obsolete": 0,
       "Done": 0
     };
+    const totalIssue = {};
+
+    function getSprint() {
+      const sprintMatch = $('h2._1wyb1igy._otyrxy5q._2hwx1wug').text().match(/(\d+\.\d+)/);
+      return sprintMatch ? sprintMatch[0] : '';
+    }
 
     function getTotalStories($parent, title) {
       let totalText = '';
       const nameSums = {};
       let totalPoints = 0;
       const statusSums = {};
+      const sprint = getSprint();
 
-      // Find sprint number from the heading
-      const sprintMatch = $('h2._1wyb1igy._otyrxy5q._2hwx1wug').text().match(/(\d+\.\d+)/);
-      const sprint = sprintMatch ? sprintMatch[0] : '';
-
-      // Iterate over each row in the table
       $parent.find('table tr').each(function() {
-        // Find the second-to-last column and get the <span> element with the name
-        const $nameElement = $(this).find('td:nth-last-child(2) span[id$="val-avatar-label"]');
-        const name = $nameElement.length ? $nameElement.text().trim() : '';
-
-        // Find the status
-        const $statusElement = $(this).find('td:nth-last-child(3) div[role$="presentation"]');
-        const status = $statusElement.length ? $statusElement.text().trim() : '';
-
-        // Find the last column and get its value
-        const $valueElement = $(this).find('td:last-child');
-        const value = $valueElement.length ? parseFloat($valueElement.text().trim()) : NaN;
-
-        // Find description
-        const $descElement = $(this).find('td:nth-child(2)');
-        const desc = $descElement.length ? $descElement.text().trim() : '';
+        const name = $(this).find('td:nth-last-child(2) span[id$="val-avatar-label"]').text().trim();
+        const status = $(this).find('td:nth-last-child(3) div[role$="presentation"]').text().trim();
+        const value = parseFloat($(this).find('td:last-child').text().trim()) || 0;
+        const desc = $(this).find('td:nth-child(2)').text().trim();
         const devbug = desc.includes('[DEV-' + sprint + ']');
+        const issue = $(this).find('td:nth-child(3)').text().trim();
 
-        // Find issue type
-        const $issueElement = $(this).find('td:nth-child(3)');
-        const issue = $issueElement.length ? $issueElement.text().trim() : '';
-
-        // If the name is not empty and value is a number
         if (name) {
-          // Initialize if not existing
           if (!nameSums[name]) {
             nameSums[name] = { total: 0, status: {}, issue: {} };
           }
 
-          // Update status total
           if (!nameSums[name].status[status]) {
             nameSums[name].status[status] = 0;
           }
 
-          // Update overall totals
           if (!statusSums[status]) {
             statusSums[status] = 0;
           }
 
-          if (!isNaN(value)) {
-            totalPoints += value;
-            nameSums[name].total += value;
-            statusSums[status] += value;
-            statusSum[title] += value;
-            statusSum[status] += value;
-            nameSums[name].status[status] += value;
+          totalPoints += value;
+          nameSums[name].total += value;
+          statusSums[status] += value;
+          statusSum[title] += value;
+          statusSum[status] += value;
+          nameSums[name].status[status] += value;
+
+          if (!totalIssue[issue]) {
+            totalIssue[issue] = 1;
+          } else {
+            totalIssue[issue]++;
           }
 
           if (!nameSums[name].issue[issue]) {
@@ -91,110 +79,186 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         }
       });
 
-      // Add title and total points to the result text
-      totalText += '<span style="color: darkorange;">' + title + ':</span> ' + totalPoints + '<br/>';
-var comparisonTable = '';
-
-// Collect all unique statuses and issues
-var uniqueStatuses = new Set();
-var uniqueIssues = new Set();
-$.each(nameSums, function(name, sum) {
-    $.each(sum.status, function(status) {
-        uniqueStatuses.add(status);
-    });
-    $.each(sum.issue, function(issueType) {
-        uniqueIssues.add(issueType);
-    });
-});
-
-// Convert Sets to arrays for easier iteration
-uniqueStatuses = Array.from(uniqueStatuses);
-uniqueIssues = Array.from(uniqueIssues);
-
-// Start the comparison table with headers
-comparisonTable += '<table border="1" cellspacing="0" cellpadding="5" style="border-collapse: collapse; width: 100%;">';
-comparisonTable += '<thead><tr>';
-comparisonTable += '<th>Name</th>';
-comparisonTable += '<th>Total Points</th>';
-          $.each(uniqueStatuses, function(index, status) {
-                comparisonTable += '<th data-type="status">Status: ' + status + '</th>';
-            });
-
-            $.each(uniqueIssues, function(index, issue) {
-                comparisonTable += '<th data-type="issue">Issue: ' + issue + '</th>';
-            });
-comparisonTable += '</tr></thead>';
-comparisonTable += '<tbody>';
-
-// Iterate over each name to generate rows
-$.each(nameSums, function(name, sum) {
-    var row = '<tr>';
-    row += '<td>' + name + '</td>';
-    row += '<td>' + sum.total + '</td>';
-
-    // Add points for each status
-    $.each(uniqueStatuses, function(index, status) {
-        var points = sum.status[status] || 0;
-        row += '<td>' + points + '</td>';
-    });
-
-    // Add counts for each issue
-    $.each(uniqueIssues, function(index, issue) {
-        var count = sum.issue[issue] || 0;
-        row += '<td>' + count + '</td>';
-    });
-
-    row += '</tr>';
-    comparisonTable += row;
-});
-
-comparisonTable += '</tbody></table><br/>';
-
-// Append the comparison table to totalText or wherever you need it to be displayed
-totalText += comparisonTable;
-
-
-      // Display the results per name
-$.each(nameSums, function(name, sum) {
-    // Display Name and Total Points outside the table
-    totalText += '<div style="font-weight: bold; color: blue;">Name: ' + name + '</div>';
-    totalText += '<div style="font-weight: bold; color: darkred;">Total Points: ' + sum.total + '</div>';
-
-    // Create the table for Status and Issue
-    totalText += '<table border="1" cellspacing="0" cellpadding="5" style="border-collapse: collapse; width: 100%;">';
-    totalText += '<thead><tr><th>Status</th><th>Points</th></tr></thead>';
-    totalText += '<tbody>';
-
-    // Generate rows for each status
-    $.each(sum.status, function(status, value) {
-        totalText += '<tr>';
-        totalText += '<td>' + status + '</td>';
-        totalText += '<td>' + value + '</td>';
-        totalText += '</tr>';
-    });
-
-    // Add an empty row between status and issue sets
-    totalText += '<tr><td colspan="2" style="height: 10px;"></td></tr>';
-
-    // Add header for Issue and Count
-    totalText += '<tr><th>Issue</th><th>Count</th></tr>';
-
-    // Generate rows for each issue
-    $.each(sum.issue, function(issueType, value) {
-        totalText += '<tr>';
-        totalText += '<td>' + issueType + '</td>';
-        totalText += '<td>' + value + '</td>';
-        totalText += '</tr>';
-    });
-
-    totalText += '</tbody></table><br/>';
-});
-
+      totalText += `<span style="color: darkorange;">${title}:</span> ${totalPoints}<br/>`;
+      totalText += generateComparisonTable(nameSums);
+      totalText += generateDetailedTables(nameSums);
 
       return totalText;
     }
 
-    // Find completed and incomplete issues containers
+    function generateComparisonTable(nameSums) {
+      let comparisonTable = '';
+      const uniqueStatuses = new Set();
+      const uniqueIssues = new Set();
+
+      $.each(nameSums, function(name, sum) {
+        $.each(sum.status, function(status) {
+          uniqueStatuses.add(status);
+        });
+        $.each(sum.issue, function(issueType) {
+          uniqueIssues.add(issueType);
+        });
+      });
+
+      comparisonTable += '<table border="1" cellspacing="0" cellpadding="5" style="border-collapse: collapse; width: 100%;">';
+      comparisonTable += '<thead><tr><th>Name</th><th>Total Points</th>';
+
+      $.each(Array.from(uniqueStatuses), function(index, status) {
+        comparisonTable += `<th data-type="status">Status: ${status}</th>`;
+      });
+
+      $.each(Array.from(uniqueIssues), function(index, issue) {
+        comparisonTable += `<th data-type="issue">Issue: ${issue}</th>`;
+      });
+
+      comparisonTable += '</tr></thead><tbody>';
+
+      $.each(nameSums, function(name, sum) {
+        let row = `<tr><td>${name}</td><td>${sum.total}</td>`;
+
+        $.each(Array.from(uniqueStatuses), function(index, status) {
+          const points = sum.status[status] || 0;
+          row += `<td>${points}</td>`;
+        });
+
+        $.each(Array.from(uniqueIssues), function(index, issue) {
+          const count = sum.issue[issue] || 0;
+          row += `<td>${count}</td>`;
+        });
+
+        row += '</tr>';
+        comparisonTable += row;
+      });
+
+      comparisonTable += '</tbody></table><br/>';
+      return comparisonTable;
+    }
+
+    function generateDetailedTables(nameSums) {
+      let detailedTables = '';
+
+      $.each(nameSums, function(name, sum) {
+        detailedTables += `<div style="font-weight: bold; color: blue;">Name: ${name}</div>`;
+        detailedTables += `<div style="font-weight: bold; color: darkred;">Total Points: ${sum.total}</div>`;
+
+        detailedTables += '<table border="1" cellspacing="0" cellpadding="5" style="border-collapse: collapse; width: 100%;">';
+        detailedTables += '<thead><tr><th>Status</th><th>Points</th></tr></thead><tbody>';
+
+        $.each(sum.status, function(status, value) {
+          detailedTables += `<tr><td>${status}</td><td>${value}</td></tr>`;
+        });
+
+        detailedTables += '<tr><td colspan="2" style="height: 10px;"></td></tr>';
+        detailedTables += '<tr><th>Issue</th><th>Count</th></tr>';
+
+        $.each(sum.issue, function(issueType, value) {
+          detailedTables += `<tr><td>${issueType}</td><td>${value}</td></tr>`;
+        });
+
+        detailedTables += '</tbody></table><br/>';
+      });
+
+      return detailedTables;
+    }
+
+    function generateStatusSummary() {
+      let tableHtml = `
+        <style>
+          table {
+            border-collapse: collapse;
+            width: 100%;
+            font-family: Arial, sans-serif;
+            margin-top: 20px;
+          }
+          th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+          }
+          th {
+            background-color: #f2f2f2;
+            color: #333;
+          }
+          tr:nth-child(even) {
+            background-color: #f9f9f9;
+          }
+          tr:hover {
+            background-color: #f1f1f1;
+          }
+          .total-row {
+            font-weight: bold;
+            background-color: #e6e6e6;
+          }
+        </style>
+        <table>
+          <tr>
+            <th>Status</th>
+            <th>Points</th>
+          </tr>`;
+
+      $.each(statusSum, function(status, value) {
+        tableHtml += `
+          <tr>
+            <td>${status}</td>
+            <td>${value}</td>
+          </tr>`;
+      });
+
+      const totalDevCommittedPoints = statusSum["Completed points"] + statusSum["READY FOR TEST"] + statusSum["Testing"] - statusSum["Rejected"] - statusSum["Blocked by pm"] - statusSum["Obsolete"];
+      tableHtml += `
+        <tr class="total-row">
+          <td>Total Dev Committed Points</td>
+          <td>${totalDevCommittedPoints}</td>
+        </tr>
+      </table>`;
+
+      return tableHtml;
+    }
+
+    function generateIssueSummary() {
+      let issueSummaryHtml = `
+        <style>
+          table {
+            border-collapse: collapse;
+            width: 100%;
+            font-family: Arial, sans-serif;
+            margin-top: 20px;
+          }
+          th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+          }
+          th {
+            background-color: #f2f2f2;
+            color: #333;
+          }
+          tr:nth-child(even) {
+            background-color: #f9f9f9;
+          }
+          tr:hover {
+            background-color: #f1f1f1;
+          }
+        </style>
+        <br/><span style="color: darkorange;">Overall Issue Type Summary:</span><br/>
+        <table>
+          <tr>
+            <th>Issue Type</th>
+            <th>Count</th>
+          </tr>`;
+
+      $.each(totalIssue, function(issueType, count) {
+        issueSummaryHtml += `
+          <tr>
+            <td>${issueType}</td>
+            <td>${count}</td>
+          </tr>`;
+      });
+
+      issueSummaryHtml += '</table>';
+      return issueSummaryHtml;
+    }
+
     let totalText = '';
     const $completeIssuesContainer = $('[data-test-id="software-burndown-report.ui.data-tables.complete-issues-table-container"]');
     const $incompleteIssuesContainer = $('[data-test-id="software-burndown-report.ui.data-tables.incomplete-issues-table-container"]');
@@ -202,18 +266,9 @@ $.each(nameSums, function(name, sum) {
     if ($completeIssuesContainer.length && $incompleteIssuesContainer.length) {
       totalText += getTotalStories($completeIssuesContainer, 'Completed points');
       totalText += getTotalStories($incompleteIssuesContainer, 'Incompleted points');
-
-      // Display overall status totals
       totalText += '<br/><span style="color: darkorange;">Overall Status Summary:</span><br/>';
-
-      // Print dev committed
-      const totalDevCommittedPoints = statusSum["Completed points"] + statusSum["READY FOR TEST"] + statusSum["Testing"] - statusSum["Rejected"] - statusSum["Blocked by pm"] - statusSum["Obsolete"];
-      totalText += 'Total Dev Committed Points: ' + totalDevCommittedPoints + '<br/>';
-
-      $.each(statusSum, function(status, value) {
-        totalText += status + ": " + value + '<br/>';
-      });
-
+      totalText += generateStatusSummary();
+      totalText += generateIssueSummary();
     } else {
       console.error('Required elements not found.');
       sendResponse({ totalText: '<span style="color: darkred;">Error: Required elements not found</span>' });
