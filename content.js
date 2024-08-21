@@ -2,7 +2,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   if (request.action === 'calculateStoryPoints') {
     const statusSum = {
       "Completed points": 0,
-      "Uncompleted points": 0,
+      "Incompleted points": 0,
       "To Do": 0,
       "DEVELOPMENT": 0,
       "READY FOR TEST": 0,
@@ -92,16 +92,19 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       });
 
       // Add title and total points to the result text
-      totalText += '<span style="color: darkred;">' + title + ':</span> ' + totalPoints + '<br/>';
+      totalText += '<span style="color: darkorange;">' + title + ':</span> ' + totalPoints + '<br/>';
 
       // Display the results per name
       $.each(nameSums, function(name, sum) {
         totalText += '<span style="color: blue;">' + name + ':</span> ' + sum.total + '<br/>'; // Display total points for the name
+	totalText += '<span style="color: purple;">Status:</span> <br/>';
         $.each(sum.status, function(status, value) {
           if (status !== 'total') { // Exclude the total key from the status list
             totalText += '&emsp;' + status + ": " + value + '<br/>'; // Indent status breakdown
           }
         });
+        totalText += '<br/>';
+	totalText += '<span style="color: purple;">Issues:</span>';
         totalText += '<br/>';
         $.each(sum.issue, function(issueType, value) {
           if (issueType !== 'total') { // Exclude the total key from the status list
@@ -122,10 +125,10 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 
     if ($completeIssuesContainer.length && $incompleteIssuesContainer.length) {
       totalText += getTotalStories($completeIssuesContainer, 'Completed points');
-      totalText += getTotalStories($incompleteIssuesContainer, 'Uncompleted points');
+      totalText += getTotalStories($incompleteIssuesContainer, 'Incompleted points');
 
       // Display overall status totals
-      totalText += '<br/><span style="color: darkorange;">Overall Status Totals:</span><br/>';
+      totalText += '<br/><span style="color: darkorange;">Overall Status Summary:</span><br/>';
 
       // Print dev committed
       const totalDevCommittedPoints = statusSum["Completed points"] + statusSum["READY FOR TEST"] + statusSum["Testing"] - statusSum["Rejected"] - statusSum["Blocked by pm"] - statusSum["Obsolete"];
