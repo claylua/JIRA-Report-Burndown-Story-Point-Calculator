@@ -18,24 +18,40 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     const totalIssue = {};
 
     function getSprint() {
-      const sprintMatch = $('h2._1wyb1igy._otyrxy5q._2hwx1wug').text().match(/(\d+\.\d+)/);
+      const sprintElement = document.querySelector('h2._1wyb1igy._otyrxy5q._2hwx1wug');
+      if (!sprintElement) {
+        console.error('Sprint element not found.');
+        return '';
+      }
+      const sprintMatch = sprintElement.textContent.match(/(\d+\.\d+)/);
       return sprintMatch ? sprintMatch[0] : '';
     }
 
-    function getTotalStories($parent, title) {
+    function getTotalStories(parent, title) {
       let totalText = '';
       const nameSums = {};
       let totalPoints = 0;
       const statusSums = {};
       const sprint = getSprint();
 
-      $parent.find('table tr').each(function() {
-        const name = $(this).find('td:nth-last-child(2) span[id$="val-avatar-label"]').text().trim();
-        const status = $(this).find('td:nth-last-child(3) div[role$="presentation"]').text().trim();
-        const value = parseFloat($(this).find('td:last-child').text().trim()) || 0;
-        const desc = $(this).find('td:nth-child(2)').text().trim();
+      parent.querySelectorAll('table tr').forEach(row => {
+        const nameElement = row.querySelector('td:nth-last-child(2) span[id$="val-avatar-label"]');
+        const statusElement = row.querySelector('td:nth-last-child(3) div[role$="presentation"]');
+        const valueElement = row.querySelector('td:last-child');
+        const descElement = row.querySelector('td:nth-child(2)');
+        const issueElement = row.querySelector('td:nth-child(3)');
+
+        if (!nameElement || !statusElement || !valueElement || !descElement || !issueElement) {
+          console.error('One of the required elements is missing in the row.');
+          return; // Skip this row if any required element is missing
+        }
+
+        const name = nameElement.textContent.trim();
+        const status = statusElement.textContent.trim();
+        const value = parseFloat(valueElement.textContent.trim()) || 0;
+        const desc = descElement.textContent.trim();
         const devbug = desc.includes('[DEV-' + sprint + ']');
-        const issue = $(this).find('td:nth-child(3)').text().trim();
+        const issue = issueElement.textContent.trim();
 
         if (name) {
           if (!nameSums[name]) {
@@ -57,24 +73,11 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
           statusSum[status] += value;
           nameSums[name].status[status] += value;
 
-          if (!totalIssue[issue]) {
-            totalIssue[issue] = 1;
-          } else {
-            totalIssue[issue]++;
-          }
-
-          if (!nameSums[name].issue[issue]) {
-            nameSums[name].issue[issue] = 1;
-          } else {
-            nameSums[name].issue[issue]++;
-          }
+          totalIssue[issue] = (totalIssue[issue] || 0) + 1;
+          nameSums[name].issue[issue] = (nameSums[name].issue[issue] || 0) + 1;
 
           if (devbug) {
-            if (!nameSums[name].issue['devbug']) {
-              nameSums[name].issue['devbug'] = 1;
-            } else {
-              nameSums[name].issue['devbug']++;
-            }
+            nameSums[name].issue['devbug'] = (nameSums[name].issue['devbug'] || 0) + 1;
           }
         }
       });
@@ -91,37 +94,33 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       const uniqueStatuses = new Set();
       const uniqueIssues = new Set();
 
-      $.each(nameSums, function(name, sum) {
-        $.each(sum.status, function(status) {
-          uniqueStatuses.add(status);
-        });
-        $.each(sum.issue, function(issueType) {
-          uniqueIssues.add(issueType);
-        });
+      Object.values(nameSums).forEach(sum => {
+        Object.keys(sum.status).forEach(status => uniqueStatuses.add(status));
+        Object.keys(sum.issue).forEach(issueType => uniqueIssues.add(issueType));
       });
 
       comparisonTable += '<table border="1" cellspacing="0" cellpadding="5" style="border-collapse: collapse; width: 100%;">';
       comparisonTable += '<thead><tr><th>Name</th><th>Total Points</th>';
 
-      $.each(Array.from(uniqueStatuses), function(index, status) {
+      Array.from(uniqueStatuses).forEach(status => {
         comparisonTable += `<th data-type="status">Status: ${status}</th>`;
       });
 
-      $.each(Array.from(uniqueIssues), function(index, issue) {
+      Array.from(uniqueIssues).forEach(issue => {
         comparisonTable += `<th data-type="issue">Issue: ${issue}</th>`;
       });
 
       comparisonTable += '</tr></thead><tbody>';
 
-      $.each(nameSums, function(name, sum) {
+      Object.entries(nameSums).forEach(([name, sum]) => {
         let row = `<tr><td>${name}</td><td>${sum.total}</td>`;
 
-        $.each(Array.from(uniqueStatuses), function(index, status) {
+        Array.from(uniqueStatuses).forEach(status => {
           const points = sum.status[status] || 0;
           row += `<td>${points}</td>`;
         });
 
-        $.each(Array.from(uniqueIssues), function(index, issue) {
+        Array.from(uniqueIssues).forEach(issue => {
           const count = sum.issue[issue] || 0;
           row += `<td>${count}</td>`;
         });
@@ -137,21 +136,21 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     function generateDetailedTables(nameSums) {
       let detailedTables = '';
 
-      $.each(nameSums, function(name, sum) {
+      Object.entries(nameSums).forEach(([name, sum]) => {
         detailedTables += `<div style="font-weight: bold; color: blue;">Name: ${name}</div>`;
         detailedTables += `<div style="font-weight: bold; color: darkred;">Total Points: ${sum.total}</div>`;
 
         detailedTables += '<table border="1" cellspacing="0" cellpadding="5" style="border-collapse: collapse; width: 100%;">';
         detailedTables += '<thead><tr><th>Status</th><th>Points</th></tr></thead><tbody>';
 
-        $.each(sum.status, function(status, value) {
+        Object.entries(sum.status).forEach(([status, value]) => {
           detailedTables += `<tr><td>${status}</td><td>${value}</td></tr>`;
         });
 
         detailedTables += '<tr><td colspan="2" style="height: 10px;"></td></tr>';
         detailedTables += '<tr><th>Issue</th><th>Count</th></tr>';
 
-        $.each(sum.issue, function(issueType, value) {
+        Object.entries(sum.issue).forEach(([issueType, value]) => {
           detailedTables += `<tr><td>${issueType}</td><td>${value}</td></tr>`;
         });
 
@@ -196,7 +195,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
             <th>Points</th>
           </tr>`;
 
-      $.each(statusSum, function(status, value) {
+      Object.entries(statusSum).forEach(([status, value]) => {
         tableHtml += `
           <tr>
             <td>${status}</td>
@@ -247,7 +246,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
             <th>Count</th>
           </tr>`;
 
-      $.each(totalIssue, function(issueType, count) {
+      Object.entries(totalIssue).forEach(([issueType, count]) => {
         issueSummaryHtml += `
           <tr>
             <td>${issueType}</td>
@@ -260,12 +259,12 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     }
 
     let totalText = '';
-    const $completeIssuesContainer = $('[data-test-id="software-burndown-report.ui.data-tables.complete-issues-table-container"]');
-    const $incompleteIssuesContainer = $('[data-test-id="software-burndown-report.ui.data-tables.incomplete-issues-table-container"]');
+    const completeIssuesContainer = document.querySelector('[data-test-id="software-burndown-report.ui.data-tables.complete-issues-table-container"]');
+    const incompleteIssuesContainer = document.querySelector('[data-test-id="software-burndown-report.ui.data-tables.incomplete-issues-table-container"]');
 
-    if ($completeIssuesContainer.length && $incompleteIssuesContainer.length) {
-      totalText += getTotalStories($completeIssuesContainer, 'Completed points');
-      totalText += getTotalStories($incompleteIssuesContainer, 'Incompleted points');
+    if (completeIssuesContainer && incompleteIssuesContainer) {
+      totalText += getTotalStories(completeIssuesContainer, 'Completed points');
+      totalText += getTotalStories(incompleteIssuesContainer, 'Incompleted points');
       totalText += '<br/><span style="color: darkorange;">Overall Status Summary:</span><br/>';
       totalText += generateStatusSummary();
       totalText += generateIssueSummary();
